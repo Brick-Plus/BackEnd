@@ -12,7 +12,7 @@ type Product struct {
 	IdTheme int
 	Theme Theme `gorm:"foreignKey:IdTheme"` 
 	IdCategorie int
-	Categorie Categorie `gotm:"foreignKey:IdCategorie"`
+	Categorie Categorie `gorm:"foreignKey:IdCategorie"`
 	SubTheme string `json:"sub_theme"`
 	NbPieces int `json:"nb_pieces"`
 	NbFigurines int `json:"nb_figurines"`

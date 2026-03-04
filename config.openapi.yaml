@@ -1,0 +1,488 @@
+openapi: 3.0.3
+info:
+  title: Sample API
+  description: API for managing users, products, themes and categories
+  version: 1.0.0
+
+servers:
+  - url: http://localhost:8080/api/v1
+
+paths:
+
+  ########################
+  # USERS
+  ########################
+
+  /users:
+    get:
+      summary: Get all users
+      tags: [Users]
+      responses:
+        '200':
+          description: List of users
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/User'
+
+    post:
+      summary: Create a user
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+      responses:
+        '201':
+          description: User created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+  /users/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      summary: Get user by ID
+      tags: [Users]
+      responses:
+        '200':
+          description: User found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+        '404':
+          description: User not found
+
+    put:
+      summary: Update user
+      tags: [Users]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserInput'
+      responses:
+        '200':
+          description: User updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/User'
+
+    delete:
+      summary: Delete user
+      tags: [Users]
+      responses:
+        '204':
+          description: User deleted
+
+
+  ########################
+  # PRODUCTS
+  ########################
+
+  /products:
+    get:
+      summary: Get all products
+      tags: [Products]
+      responses:
+        '200':
+          description: List of products
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Product'
+
+    post:
+      summary: Create a product
+      tags: [Products]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '201':
+          description: Product created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+
+  /products/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      summary: Get product by ID
+      tags: [Products]
+      responses:
+        '200':
+          description: Product found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+        '404':
+          description: Product not found
+
+    put:
+      summary: Update product
+      tags: [Products]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductInput'
+      responses:
+        '200':
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Product'
+
+    delete:
+      summary: Delete product
+      tags: [Products]
+      responses:
+        '204':
+          description: Product deleted
+
+
+  ########################
+  # THEMES
+  ########################
+
+  /themes:
+    get:
+      summary: Get all themes
+      tags: [Themes]
+      responses:
+        '200':
+          description: List of themes
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Theme'
+
+    post:
+      summary: Create a theme
+      tags: [Themes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThemeInput'
+      responses:
+        '201':
+          description: Theme created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Theme'
+
+  /themes/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      summary: Get theme by ID
+      tags: [Themes]
+      responses:
+        '200':
+          description: Theme found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Theme'
+        '404':
+          description: Theme not found
+
+    put:
+      summary: Update theme
+      tags: [Themes]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ThemeInput'
+      responses:
+        '200':
+          description: Theme updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Theme'
+
+    delete:
+      summary: Delete theme
+      tags: [Themes]
+      responses:
+        '204':
+          description: Theme deleted
+
+
+  ########################
+  # CATEGORIES
+  ########################
+
+  /categories:
+    get:
+      summary: Get all categories
+      tags: [Categories]
+      responses:
+        '200':
+          description: List of categories
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Category'
+
+    post:
+      summary: Create a category
+      tags: [Categories]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryInput'
+      responses:
+        '201':
+          description: Category created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+
+  /categories/{id}:
+    parameters:
+      - $ref: '#/components/parameters/IdParam'
+    get:
+      summary: Get category by ID
+      tags: [Categories]
+      responses:
+        '200':
+          description: Category found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+        '404':
+          description: Category not found
+
+    put:
+      summary: Update category
+      tags: [Categories]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CategoryInput'
+      responses:
+        '200':
+          description: Category updated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Category'
+
+    delete:
+      summary: Delete category
+      tags: [Categories]
+      responses:
+        '204':
+          description: Category deleted
+
+
+components:
+
+  parameters:
+    IdParam:
+      name: id
+      in: path
+      required: true
+      schema:
+        type: integer
+
+  schemas:
+
+    User:
+      type: object
+      properties:
+        id:
+          type: integer
+        name:
+          type: string
+        surname:
+          type: string
+        country:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        phoneNumber:
+          type: string
+        deliveryAdress:
+          type: string
+        billingAdress:
+          type: string
+        isSubscribed:
+          type: boolean
+        profilPicture:
+          type: string
+          format: url
+        isAdmin:
+          type: boolean
+        createdAt:
+          type: string
+          format: date-time
+
+    UserInput:
+      type: object
+      required: [name, surname, country, email, password, deliveryAdress, billingAdress, isSubscribed]
+      properties:
+        name:
+          type: string
+        surname:
+          type: string
+        country:
+          type: string
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+        phoneNumber:
+          type: string
+        deliveryAdress:
+          type: string
+        billingAdress:
+          type: string
+        isSubscribed:
+          type: boolean
+        profilPicture:
+          type: string
+          format: url
+
+    Product:
+      type: object
+      properties:
+        id:
+          type: integer
+        nameProduct:
+          type: string
+        description:
+          type: string
+        price:
+          type: float
+        idTheme:
+          type: integer
+        idCategorie:
+          type: integer
+        subTheme:
+          type: string
+        nbPiece:
+          type: integer
+        nbFigurines:
+          type: integer
+        LEGOreference:
+          type: string
+        weight:
+          type: float
+        pictures:
+          type: array
+        state:
+          type: string
+        stock:
+          type: integer
+        createdAt:
+          type: string
+          format: date-time
+
+    ProductInput:
+      type: object
+      required: [nameProduct, description, price, idTheme, idCategorie, subTheme, nbPiece, nbFigurines, LEGOreference, weight, pictures, state, stock]
+      properties:
+        nameProduct:
+          type: string
+        description:
+          type: string
+        price:
+          type: float
+        idTheme:
+          type: integer
+        idCategorie:
+          type: integer
+        subTheme:
+          type: string
+        nbPiece:
+          type: integer
+        nbFigurines:
+          type: integer
+        LEGOreference:
+          type: string
+        weight:
+          type: float
+        pictures:
+          type: array
+        state:
+          type: string
+        stock:
+          type: integer
+
+    Theme:
+      type: object
+      properties:
+        id:
+          type: integer
+        theme:
+          type: string
+        image:
+          type: string
+          format: url
+
+    ThemeInput:
+      type: object
+      required: [theme, image]
+      properties:
+        theme:
+          type: string
+        image:
+          type: string
+          format: url
+
+    Category:
+      type: object
+      properties:
+        id:
+          type: integer
+        categorie:
+          type: string
+
+    CategoryInput:
+      type: object
+      required: [categorie]
+      properties:
+        categorie:
+          type: string
