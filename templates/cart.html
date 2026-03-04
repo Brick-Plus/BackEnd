@@ -1,0 +1,23 @@
+<html>
+<head><title>Panier</title>
+<link rel="stylesheet" href="/templates/style.css">
+</head>
+<body>
+<h1>Votre panier</h1>
+<ul>
+{{range .Items}}
+  <li>{{.Name}} x {{.Qty}} - {{euro .Total}} €
+    <form action="/remove-from-cart" method="POST" style="display:inline;">
+      <input type="hidden" name="id" value="{{.Name}}">
+      <button type="submit">Supprimer</button>
+    </form>
+  </li>
+{{end}}
+</ul>
+<p>Total : {{euro .Total}} €</p>
+<form action="/buy" method="POST">
+  <button type="submit">Procéder au paiement</button>
+</form>
+<a href="/">Retour boutique</a>
+</body>
+</html>

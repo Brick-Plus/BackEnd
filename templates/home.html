@@ -1,0 +1,41 @@
+<html>
+<head><title>Mini Shop Go</title>
+<link rel="stylesheet" href="/templates/style.css">
+</head>
+<body>
+{{if .Notif}}
+  <div class="notif-bar">{{.Notif}}</div>
+{{end}}
+<h1>BRICK + PAIMENT TEST</h1>
+<nav class="navbar">
+  <form method="GET" action="/">
+    <label for="theme">Filtrer par thème :</label>
+    <select name="theme" id="theme" onchange="this.form.submit()">
+      <option value="">Tous</option>
+      {{range .Themes}}
+        <option value="{{.}}" {{if eq $.SelectedTheme .}}selected{{end}}>{{.}}</option>
+      {{end}}
+    </select>
+  </form>
+</nav>
+<div class="product-grid">
+{{range .Products}}
+  <div class="product-card">
+    {{if .ImageURL}}
+      <img src="{{.ImageURL}}" alt="{{.Name}}" class="product-img" />
+    {{end}}
+    <div class="product-title">{{.Name}}</div>
+    <div class="product-price">{{formatPrice .Price .Currency}}</div>
+    <div class="product-stock">Stock : {{.Stock}}</div>
+    <div class="product-state">{{if .Active}}<span style="color:green;">Actif</span>{{else}}<span style="color:red;">Inactif</span>{{end}}</div>
+    <form action="/add-to-cart" method="POST">
+      <input type="hidden" name="id" value="{{.ID}}">
+      <input type="number" name="qty" value="1" min="1">
+      <button type="submit">Ajouter au panier</button>
+    </form>
+  </div>
+{{end}}
+</div>
+<a href="/cart">Voir le panier</a>
+</body>
+</html>

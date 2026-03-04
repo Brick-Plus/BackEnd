@@ -1,0 +1,275 @@
+.product-img {
+    width: 100%;
+    max-width: 160px;
+    max-height: 120px;
+    object-fit: contain;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    background: #f7f7fa;
+    box-shadow: 0 1px 4px rgba(44,62,80,0.07);
+    display: block;
+}
+/* Navbar filtre thème */
+.navbar {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 24px auto 0 auto;
+    padding: 12px 0;
+    background: #fff;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(44,62,80,0.07);
+    max-width: 600px;
+}
+.navbar label {
+    font-weight: bold;
+    margin-right: 12px;
+    color: #2c3e50;
+}
+.navbar select {
+    padding: 6px 16px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+    font-size: 1em;
+    background: #f7f7fa;
+    color: #2c3e50;
+    font-weight: bold;
+    cursor: pointer;
+}
+/* Grille de produits responsive */
+.product-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 24px;
+    max-width: 1000px;
+    margin: 40px auto 0 auto;
+    padding: 0 16px;
+}
+.product-card {
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 2px 12px rgba(44,62,80,0.10);
+    padding: 24px 18px 18px 18px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: space-between;
+    min-height: 220px;
+}
+.product-title {
+    font-size: 1.2em;
+    font-weight: bold;
+    margin-bottom: 10px;
+    text-align: center;
+}
+.product-price {
+    color: #27ae60;
+    font-size: 1.1em;
+    margin-bottom: 8px;
+}
+.product-stock {
+    font-size: 0.95em;
+    color: #555;
+    margin-bottom: 8px;
+}
+.product-state {
+    font-size: 0.95em;
+    margin-bottom: 12px;
+}
+@media (max-width: 900px) {
+    .product-grid {
+        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    }
+}
+@media (max-width: 600px) {
+    .product-grid {
+        grid-template-columns: 1fr 1fr;
+    }
+    .product-card {
+        min-height: 180px;
+        padding: 16px 8px 12px 8px;
+    }
+}
+/* Styles généraux déjà présents */
+body {
+    font-family: Arial, sans-serif;
+    background: #f7f7fa;
+    margin: 0;
+    padding: 0;
+}
+
+h1 {
+    color: #2c3e50;
+    text-align: center;
+    margin-top: 30px;
+}
+
+ul {
+    list-style: none;
+    padding: 0;
+    max-width: 600px;
+    margin: 30px auto 0 auto;
+}
+
+li {
+    background: #fff;
+    margin-bottom: 15px;
+    padding: 18px 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(44,62,80,0.07);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+form {
+    display: inline;
+}
+
+input[type="number"] {
+    border: 1px solid #ccc;
+    border-radius: 4px;
+    padding: 4px 8px;
+    width: 50px;
+    margin-right: 8px;
+}
+
+button {
+    background: #27ae60;
+    color: #fff;
+    border: none;
+    border-radius: 4px;
+    padding: 7px 16px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background 0.2s;
+}
+
+button:hover {
+    background: #219150;
+}
+
+p, a {
+    text-align: center;
+    display: block;
+    margin: 20px auto;
+    color: #2c3e50;
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+.total {
+    font-size: 1.2em;
+    font-weight: bold;
+    color: #e67e22;
+    text-align: center;
+    margin-top: 20px;
+}
+
+/* Styles pour la page de succès Stripe */
+.success-container {
+    max-width: 500px;
+    margin: 80px auto 0 auto;
+    background: #fff;
+    border-radius: 14px;
+    box-shadow: 0 4px 24px rgba(44,62,80,0.10);
+    padding: 40px 30px 32px 30px;
+    text-align: center;
+}
+.success-title {
+    color: #27ae60;
+    font-size: 2em;
+    margin-bottom: 18px;
+    font-weight: bold;
+    letter-spacing: 1px;
+}
+.success-msg {
+    color: #222;
+    font-size: 1.2em;
+    margin-bottom: 32px;
+}
+.back-btn {
+    background: linear-gradient(90deg, #00ffb3, #00c3ff, #ff00c8, #ffe600, #00ffb3);
+    background-size: 300% 300%;
+    color: #fff;
+    font-weight: bold;
+    font-size: 1.1em;
+    border: none;
+    border-radius: 8px;
+    padding: 16px 40px;
+    cursor: pointer;
+    box-shadow: 0 0 16px 2px rgba(0,0,0,0.10);
+    transition: filter 0.2s;
+    filter: brightness(1);
+    animation: rgb-glow 1.2s linear infinite;
+}
+.back-btn:hover {
+    filter: brightness(1.2) drop-shadow(0 0 8px #fff176);
+}
+@keyframes rgb-glow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
+
+/* Styles pour le bloc paiement du panier */
+.checkout-block {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 40px auto 0 auto;
+    padding: 32px 32px 24px 32px;
+    background: #fff;
+    border-radius: 12px;
+    box-shadow: 0 4px 24px rgba(44,62,80,0.10);
+    max-width: 400px;
+}
+.rgb-pay-btn {
+    font-size: 1.2em;
+    padding: 18px 48px;
+    border-radius: 8px;
+    border: none;
+    color: #fff;
+    font-weight: bold;
+    background: linear-gradient(90deg, #ff005a, #00f0ff, #fffb00, #ff005a);
+    background-size: 300% 300%;
+    box-shadow: 0 0 16px 2px rgba(0,0,0,0.10);
+    cursor: pointer;
+    outline: none;
+    transition: box-shadow 0.2s, filter 0.2s;
+    filter: brightness(1);
+    margin-top: 10px;
+}
+.rgb-pay-btn:hover {
+    animation: rgb-glow 1.2s linear infinite;
+    filter: brightness(1.2) drop-shadow(0 0 8px #fff176);
+    box-shadow: 0 0 32px 8px #fff176, 0 0 16px 2px #00f0ff;
+}
+
+/* Notification animée */
+.notif-bar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100vw;
+    background: linear-gradient(90deg, #00ffb3, #00c3ff, #ff00c8, #ffe600, #00ffb3);
+    background-size: 400% 400%;
+    color: #222;
+    font-weight: bold;
+    font-size: 1.1em;
+    text-align: center;
+    padding: 18px 0 14px 0;
+    z-index: 1000;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.10);
+    animation: notif-rainbow 2.5s linear infinite;
+    letter-spacing: 0.5px;
+}
+@keyframes notif-rainbow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+}
