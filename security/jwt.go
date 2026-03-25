@@ -30,8 +30,10 @@ func VerifyAdminToken(tokenString string) (*ClaimsAdmin, error) {
 	}
 
 	claims, ok := token.Claims.(*ClaimsAdmin)
-	if !ok || !token.Valid || !claims.IsAdmin {
-		return nil, errors.New("invalid token, not an admin")
+	if !ok || !token.Valid {
+		return nil, errors.New("invalid token")
+	} else if !claims.IsAdmin{
+		return nil, errors.New("User isn't an admin !")
 	}
 
 	return claims, nil
