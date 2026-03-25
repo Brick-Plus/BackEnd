@@ -2,6 +2,7 @@ package products
 
 import (
 	"BrickPlus/config"
+	"BrickPlus/security"
 
 	"github.com/go-chi/chi/v5"
 )
@@ -9,9 +10,14 @@ import (
 func Routes(configuration *config.Config) chi.Router {
 	ProductsConfigurator := New(configuration)
 	router := chi.NewRouter()
-	router.Post("/", ProductsConfigurator.addProductHandler)
 	router.Get("/{id}", ProductsConfigurator.productByIdHandler)
-	router.Delete("/{id}", ProductsConfigurator.deleteProductHandler)
-	router.Put("/{id}", ProductsConfigurator.editProductHandler)
+
+	router.Group(func(r chi.Router) {
+		r.Use(security.AdminMiddleware)
+
+		r.Post("/", ProductsConfigurator.addProductHandler)
+		r.Delete("/{id}", ProductsConfigurator.deleteProductHandler)
+		r.Put("/{id}", ProductsConfigurator.editProductHandler)
+	})
 	return router
 }
