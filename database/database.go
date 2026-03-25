@@ -13,6 +13,7 @@ func Migrate(db *gorm.DB) {
 		&dbmodel.Product{},
 		&dbmodel.Categorie{},
 		&dbmodel.Theme{},
+		&dbmodel.Favorite{},
 	)
 	log.Println("Database migrated succesfully")
 }

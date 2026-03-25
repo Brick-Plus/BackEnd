@@ -16,6 +16,7 @@ type Config struct {
 	ThemesRepository     dbmodel.ThemesRepository
 	CategoriesRepository dbmodel.CategoriesRepository
 	NoticesRepository    dbmodel.NoticesRepository
+	FavoritesRepository   dbmodel.FavoritesRepository
 }
 
 func New() (*Config, error) {
@@ -33,5 +34,6 @@ func New() (*Config, error) {
 	config.ThemesRepository = dbmodel.NewThemesRepository(databaseSession)
 	config.CategoriesRepository = dbmodel.NewCategoriesRepository(databaseSession)
 	config.NoticesRepository = dbmodel.NewNoticesRepository(databaseSession)
+	config.FavoritesRepository = dbmodel.NewFavoritesRepository(databaseSession)
 	return &config, nil
 }
