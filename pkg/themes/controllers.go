@@ -33,6 +33,7 @@ func (config *ThemeConfigurator) themeByIdHandler(w http.ResponseWriter, r *http
 	themeId := chi.URLParam(r, "id")
 	theme, err := config.ThemesRepository.FindThemeById(themeId)
 	if err != nil{
+		render.Status(r, 404)
 		render.JSON(w, r, map[string]string{"Error": "Failed to load the wanted theme"})
 		return
 	}
@@ -43,6 +44,7 @@ func (config *ThemeConfigurator) themeByIdHandler(w http.ResponseWriter, r *http
 func (config *ThemeConfigurator) addThemeHandler(w http.ResponseWriter, r *http.Request){
 	req := &models.Theme{}
 	if err := render.Bind(r, req); err != nil{
+		render.Status(r, 403)
 		render.JSON(w, r, map[string]string{"Error" : err.Error()})
 		return
 	}
@@ -55,6 +57,7 @@ func (config *ThemeConfigurator) deleteThemehandler(w http.ResponseWriter, r *ht
 	themeId := chi.URLParam(r, "id")
 	theme, err := config.ThemesRepository.FindThemeById(themeId)
 	if err != nil{
+		render.Status(r, 404)
 		render.JSON(w, r, map[string]string{"Error": "Failed to find the wanted theme"})
 	}
 	config.ThemesRepository.ThemeToDelete(theme[0])
@@ -65,6 +68,7 @@ func (config *ThemeConfigurator) editThemeHandler(w http.ResponseWriter, r *http
 	req := &models.Theme{}
 	themeId := chi.URLParam(r, "id")
 	if err := render.Bind(r, req); err != nil{
+		render.Status(r, 403)
 		render.JSON(w, r, map[string]string{"Error": err.Error()})
 		return
 	}

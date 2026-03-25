@@ -32,6 +32,7 @@ func (config *CategorieConfigurator) categorieByIdHandler(w http.ResponseWriter,
 	categorieId := chi.URLParam(r, "id")
 	categorie, err := config.CategoriesRepository.FindCategorieById(categorieId)
 	if err != nil{
+		render.Status(r, 404)
 		render.JSON(w, r, map[string]string{"Error": err.Error()})
 		return
 	}
@@ -42,6 +43,7 @@ func (config *CategorieConfigurator) categorieByIdHandler(w http.ResponseWriter,
 func (config *CategorieConfigurator) addCategorieHandler(w http.ResponseWriter, r *http.Request){
 	req := &models.Categorie{}
 	if err := render.Bind(r, req); err != nil{
+		render.Status(r, 403)
 		render.JSON(w, r, map[string]string{"Error": err.Error()})
 		return
 	}
@@ -54,6 +56,7 @@ func (config *CategorieConfigurator) deleteCategorieHandler(w http.ResponseWrite
 	categorieId := chi.URLParam(r, "id")
 	categorie, err := config.CategoriesRepository.FindCategorieById(categorieId)
 	if err != nil{
+		render.Status(r, 404)
 		render.JSON(w, r, map[string]string{"Error": err.Error()})
 		return
 	}
@@ -65,10 +68,11 @@ func (config *CategorieConfigurator) updateCategorieHandler(w http.ResponseWrite
 	categorieId := chi.URLParam(r, "id")
 	req := &models.Categorie{}
 	if err := render.Bind(r, req); err != nil{
+		render.Status(r, 403)
 		render.JSON(w, r, map[string]string{"Error": err.Error()})
 		return
 	}
 	updatedCategorie := dbmodel.Categorie{Categorie: req.Categorie}
 	config.CategoriesRepository.CategorieToUpdate(&updatedCategorie, categorieId)
-	render.JSON(w, r, map[string]string{"Success": "Categoriesuccessfully updated !"})
+	render.JSON(w, r, map[string]string{"Success": "Categorie successfully updated !"})
 }

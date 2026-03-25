@@ -39,6 +39,7 @@ func (config *UserConfigurator) userByIdHandler(w http.ResponseWriter, r *http.R
 	userId := chi.URLParam(r, "id")
 	user, err := config.UsersRepository.FindUserById(userId)
 	if err != nil {
+		render.Status(r, 404)
 		render.JSON(w, r, map[string]string{"Error": "Failed to load the wanted user"})
 		return
 	}
@@ -49,6 +50,7 @@ func (config *UserConfigurator) userByIdHandler(w http.ResponseWriter, r *http.R
 func (config *UserConfigurator) addUserHandler(w http.ResponseWriter, r *http.Request) {
 	req := &models.User{}
 	if err := render.Bind(r, req); err != nil {
+		render.Status(r, 403)
 		render.JSON(w, r, map[string]string{"error": err.Error()})
 		return
 	}
@@ -61,6 +63,7 @@ func (config *UserConfigurator) deleteUserHandler(w http.ResponseWriter, r *http
 	userId := chi.URLParam(r, "id")
 	user, err := config.UsersRepository.FindUserById(userId)
 	if err != nil {
+		render.Status(r, 404)
 		render.JSON(w, r, map[string]string{"Error": "Failed to find the wanted user"})
 		return
 	}
@@ -72,6 +75,7 @@ func (config *UserConfigurator) editUserHandler(w http.ResponseWriter, r *http.R
 	req := &models.User{}
 	userId := chi.URLParam(r, "id")
 	if err := render.Bind(r, req); err != nil {
+		render.Status(r, 403)
 		render.JSON(w, r, map[string]string{"error": err.Error()})
 		return
 	}
