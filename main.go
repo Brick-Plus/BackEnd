@@ -2,6 +2,7 @@ package main
 
 import (
 	"BrickPlus/config"
+	"BrickPlus/pkg/categories"
 	"BrickPlus/pkg/products"
 	"BrickPlus/pkg/themes"
 	"BrickPlus/pkg/users"
@@ -16,7 +17,7 @@ func Routes(configuration *config.Config) *chi.Mux {
 	router.Mount("/api/v1/users", users.Routes(configuration))
 	router.Mount("/api/v1/products", products.Routes(configuration))
 	router.Mount("/api/v1/themes", themes.Routes(configuration))
-	router.Mount("/api/v1/categories", themes.Routes(configuration))
+	router.Mount("/api/v1/categories", categories.Routes(configuration))
 	router.Handle("/config.openapi.yaml", http.FileServer(http.Dir("./")))
 	fs := http.FileServer(http.Dir("./swagger-ui"))
 	router.Handle("/*", fs)
