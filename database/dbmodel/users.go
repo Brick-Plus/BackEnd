@@ -1,6 +1,7 @@
 package dbmodel
 
 import (
+	"errors"
 	"gorm.io/gorm"
 )
 
@@ -22,6 +23,7 @@ type User struct {
 type UsersRepository interface{
 	Create(newUser *User)(*User, error)
 	FindUserById(userId string)([]*User, error)
+	FindUserByEmail(email string)(*User, error)
 	Delete(userToDelete *User) error
 	Update(userToUpdate *User, userId string) error
 }
@@ -49,8 +51,19 @@ func (r *usersRepository) FindUserById(userId string)([]*User, error){
 	return entry, nil
 }
 
+func (r *usersRepository) FindUserByEmail(email string) (*User, error) {
+	var entry User
+	if err := r.db.Where("email = ?", email).First(&entry).Error; err != nil {
+		return nil, err
+	}
+	return &entry, nil
+}
+
 func (r *usersRepository) Delete(userToDelete *User) error {
-	if err := r.db.Delete(userToDelete).Error; err != nil || userToDelete.IsAdmin{
+	if userToDelete.IsAdmin {
+		return errors.New("cannot delete an admin user")
+	}
+	if err := r.db.Delete(userToDelete).Error; err != nil {
 		return err
 	}
 	return nil

@@ -35,6 +35,7 @@ func AdminMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx := context.WithValue(r.Context(), IsAdminKey, claims.IsAdmin)
+		ctx = context.WithValue(ctx, UserIDKey, claims.UserId) // Ajouter aussi l'UserId pour les admins
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
@@ -61,6 +62,7 @@ func UserMiddleware(next http.Handler) http.Handler {
 		}
 
 		ctx := context.WithValue(r.Context(), UserIDKey, claims.UserId)
+		ctx = context.WithValue(ctx, IsAdminKey, claims.IsAdmin) // Injecter aussi le rôle admin
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

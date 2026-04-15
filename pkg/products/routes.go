@@ -12,10 +12,10 @@ func Routes(configuration *config.Config) chi.Router {
 	router := chi.NewRouter()
 	router.Get("/{id}", ProductsConfigurator.productByIdHandler)
 
+	router.Post("/", ProductsConfigurator.addProductHandler)
 	router.Group(func(r chi.Router) {
 		r.Use(security.AdminMiddleware)
 
-		r.Post("/", ProductsConfigurator.addProductHandler)
 		r.Delete("/{id}", ProductsConfigurator.deleteProductHandler)
 		r.Put("/{id}", ProductsConfigurator.editProductHandler)
 	})

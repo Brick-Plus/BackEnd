@@ -40,6 +40,8 @@ func main() {
 	router := Routes(configuration)
 
 	log.Println("Serving on :8080")
-	http.ListenAndServe(":8080", router)
+	if err := http.ListenAndServe(":8080", router); err != nil {
+		log.Fatal("Server error:", err)
+	}
 }
 

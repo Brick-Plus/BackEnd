@@ -8,7 +8,7 @@ type Product struct {
 	gorm.Model
 	NameProduct string `json:"name_product"`
 	Description string `json:"description"`
-	Price int `json:"price"`
+	Price float64 `json:"price"`
 	IdTheme int
 	Theme Theme `gorm:"foreignKey:IdTheme"` 
 	IdCategorie int

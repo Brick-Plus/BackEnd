@@ -7,7 +7,7 @@ import (
 
 type Order struct {
 	gorm.Model
-	Reference string    `json:"reference" gorm:"uniqueIndex"`
+	Reference string    `json:"reference" gorm:"type:varchar(255);uniqueIndex"`
 	IdUser    int       `json:"id_user"`
 	User      User      `gorm:"foreignKey:IdUser"`
 	Products  []Product `gorm:"many2many:order_products;"`

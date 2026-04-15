@@ -35,8 +35,8 @@ func noticeToModel(notices []*dbmodel.Notice) []models.Notice {
 func (config *NoticesConfigurator) noticeByIdHandler(w http.ResponseWriter, r *http.Request) {
 	noticeId := chi.URLParam(r, "id")
 	notices, err := config.NoticesRepository.FindNoticeById(noticeId)
-	if err != nil {
-		render.JSON(w, r, map[string]string{"error": "Failed to load the notice"})
+	if err != nil || len(notices) == 0 {
+		render.JSON(w, r, map[string]string{"error": "Notice not found"})
 		return
 	}
 	render.JSON(w, r, noticeToModel(notices))
@@ -101,7 +101,10 @@ func (config *NoticesConfigurator) deleteNoticeHandler(w http.ResponseWriter, r 
 		render.JSON(w, r, map[string]string{"error": "Notice not found"})
 		return
 	}
-	config.NoticesRepository.Delete(notices[0])
+	if err := config.NoticesRepository.Delete(notices[0]); err != nil {
+		render.JSON(w, r, map[string]string{"error": "Failed to delete notice"})
+		return
+	}
 	render.JSON(w, r, map[string]string{"success": "Notice successfully deleted"})
 }
 

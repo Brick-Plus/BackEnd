@@ -8,13 +8,16 @@ import (
 )
 
 func Migrate(db *gorm.DB) {
-	db.AutoMigrate(
+	if err := db.AutoMigrate(
 		&dbmodel.User{},
 		&dbmodel.Product{},
 		&dbmodel.Categorie{},
 		&dbmodel.Theme{},
+		&dbmodel.Notice{},
 		&dbmodel.Favorite{},
 		&dbmodel.Order{},
-	)
+	); err != nil {
+		log.Panicln("Migration failed:", err)
+	}
 	log.Println("Database migrated succesfully")
 }

@@ -19,23 +19,24 @@ func New(configuration *config.Config) *ProductsConfigurator {
 }
 
 func productToModel(products []*dbmodel.Product) []models.Product {
-	productToModel := &models.Product{}
 	productsEdited := []models.Product{}
 	for _, product := range products {
-		productToModel.NameProduct = product.NameProduct
-		productToModel.Description = product.Description
-		productToModel.LEGOReference = product.LEGOReference
-		productToModel.NbPieces = product.NbPieces
-		productToModel.NbFigurines = product.NbFigurines
-		productToModel.Price = product.Price
-		productToModel.State = product.State
-		productToModel.IdTheme = product.IdTheme
-		productToModel.IdCategorie = product.IdCategorie
-		productToModel.SubTheme = product.SubTheme
-		productToModel.Stock = product.Stock
-		productToModel.Weight = product.Weight
-		productToModel.MainPicture = product.MainPicture
-		productsEdited = append(productsEdited, *productToModel)
+		pModel := models.Product{
+			NameProduct:   product.NameProduct,
+			Description:   product.Description,
+			LEGOReference: product.LEGOReference,
+			NbPieces:      product.NbPieces,
+			NbFigurines:   product.NbFigurines,
+			Price:         product.Price,
+			State:         product.State,
+			IdTheme:       product.IdTheme,
+			IdCategorie:   product.IdCategorie,
+			SubTheme:      product.SubTheme,
+			Stock:         product.Stock,
+			Weight:        product.Weight,
+			MainPicture:   product.MainPicture,
+		}
+		productsEdited = append(productsEdited, pModel)
 	}
 	return productsEdited
 }
@@ -55,12 +56,26 @@ func (config *ProductsConfigurator) productByIdHandler(w http.ResponseWriter, r 
 func (config *ProductsConfigurator) addProductHandler(w http.ResponseWriter, r *http.Request) {
 	req := &models.Product{}
 	if err := render.Bind(r, req); err != nil {
-		render.Status(r, 401)
+		render.Status(r, 400)
 		render.JSON(w, r, map[string]string{"error": err.Error()})
 		return
 	}
-	addUser := &dbmodel.Product{NameProduct: req.NameProduct, Description: req.Description, LEGOReference: req.LEGOReference, NbPieces: req.NbPieces, NbFigurines: req.NbFigurines, Price: req.Price, State: req.State, IdTheme: req.IdTheme, IdCategorie: req.IdCategorie, SubTheme: req.SubTheme, Stock: req.Stock, Weight: req.Weight, MainPicture: req.MainPicture}
-	config.ProductsRepository.Create(addUser)
+	newProduct := &dbmodel.Product{
+		NameProduct:   req.NameProduct,
+		Description:   req.Description,
+		LEGOReference: req.LEGOReference,
+		NbPieces:      req.NbPieces,
+		NbFigurines:   req.NbFigurines,
+		Price:         req.Price,
+		State:         req.State,
+		IdTheme:       req.IdTheme,
+		IdCategorie:   req.IdCategorie,
+		SubTheme:      req.SubTheme,
+		Stock:         req.Stock,
+		Weight:        req.Weight,
+		MainPicture:   req.MainPicture,
+	}
+	config.ProductsRepository.Create(newProduct)
 	render.JSON(w, r, map[string]string{"success": "New product successfully added"})
 }
 
@@ -80,11 +95,25 @@ func (config *ProductsConfigurator) editProductHandler(w http.ResponseWriter, r 
 	req := &models.Product{}
 	productId := chi.URLParam(r, "id")
 	if err := render.Bind(r, req); err != nil {
-		render.Status(r, 401)
+		render.Status(r, 400)
 		render.JSON(w, r, map[string]string{"error": err.Error()})
 		return
 	}
-	updatedProduct := &dbmodel.Product{NameProduct: req.NameProduct, Description: req.Description, LEGOReference: req.LEGOReference, NbPieces: req.NbPieces, NbFigurines: req.NbFigurines, Price: req.Price, State: req.State, IdTheme: req.IdTheme, IdCategorie: req.IdCategorie, SubTheme: req.SubTheme, Stock: req.Stock, Weight: req.Weight, MainPicture: req.MainPicture}
+	updatedProduct := &dbmodel.Product{
+		NameProduct:   req.NameProduct,
+		Description:   req.Description,
+		LEGOReference: req.LEGOReference,
+		NbPieces:      req.NbPieces,
+		NbFigurines:   req.NbFigurines,
+		Price:         req.Price,
+		State:         req.State,
+		IdTheme:       req.IdTheme,
+		IdCategorie:   req.IdCategorie,
+		SubTheme:      req.SubTheme,
+		Stock:         req.Stock,
+		Weight:        req.Weight,
+		MainPicture:   req.MainPicture,
+	}
 	config.ProductsRepository.Update(updatedProduct, productId)
 	render.JSON(w, r, map[string]string{"success": "Product successfully updated"})
 }

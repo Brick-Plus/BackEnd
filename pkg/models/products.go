@@ -5,7 +5,7 @@ import "net/http"
 type Product struct {
 	NameProduct   string `json:"name_product"`
 	Description   string `json:"description"`
-	Price         int    `json:"price"`
+	Price         float64 `json:"price"`
 	IdTheme       int
 	IdCategorie   int
 	SubTheme      string  `json:"sub_theme"`

@@ -10,6 +10,7 @@ import (
 func Routes(configuration *config.Config) chi.Router {
 	UserConfigurator := New(configuration)
 	router := chi.NewRouter()
+	router.Post("/login", UserConfigurator.loginHandler)
 	router.Post("/", UserConfigurator.addUserHandler)
 	router.With(security.UserMiddleware).Get("/{id}", UserConfigurator.userByIdHandler)
 	router.With(security.UserMiddleware).Delete("/{id}", UserConfigurator.deleteUserHandler)

@@ -19,10 +19,10 @@ type User struct {
 }
 
 func (u *User) Bind(r *http.Request) error {
-	if r.Method == "POST"{
+	if r.Method == "POST" {
 		if u.IsAdmin {
-		return errors.New("User cannot be an admin !")
-	}
+			return errors.New("User cannot be an admin !")
+		}
 		return nil
 	}
 	return nil

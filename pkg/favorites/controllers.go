@@ -4,6 +4,7 @@ import (
 	"BrickPlus/config"
 	"BrickPlus/database/dbmodel"
 	"BrickPlus/pkg/models"
+	"BrickPlus/security"
 	"net/http"
 	"strconv"
 
@@ -19,13 +20,7 @@ func New(configuration *config.Config) *FavoritesConfigurator {
 	return &FavoritesConfigurator{configuration}
 }
 
-func favoriteToModel(favorites []*dbmodel.Notice) []models.Notice {
-	// Not needed as favorite DTO is very simple, 
-	// but kept for consistency if ever expanded.
-	return nil
-}
-
-// favoriteToModel for favorites specifically
+// favToModel convertit les dbmodel.Favorite en DTO models.Favorite
 func favToModel(favorites []*dbmodel.Favorite) []models.Favorite {
 	favsEdited := []models.Favorite{}
 	for _, fav := range favorites {
@@ -103,6 +98,18 @@ func (config *FavoritesConfigurator) deleteFavoriteHandler(w http.ResponseWriter
 		render.JSON(w, r, map[string]string{"error": "Favorite not found"})
 		return
 	}
-	config.FavoritesRepository.Delete(favorites[0])
+
+	// Vérification d'ownership : seul le propriétaire peut supprimer
+	userIdFromToken, ok := r.Context().Value(security.UserIDKey).(string)
+	if !ok || userIdFromToken != strconv.Itoa(favorites[0].IdUser) {
+		render.Status(r, http.StatusForbidden)
+		render.JSON(w, r, map[string]string{"error": "Forbidden: you do not own this favorite"})
+		return
+	}
+
+	if err := config.FavoritesRepository.Delete(favorites[0]); err != nil {
+		render.JSON(w, r, map[string]string{"error": "Failed to remove favorite"})
+		return
+	}
 	render.JSON(w, r, map[string]string{"success": "Favorite successfully removed"})
 }

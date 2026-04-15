@@ -4,6 +4,7 @@ import (
 	"BrickPlus/config"
 	"BrickPlus/database/dbmodel"
 	"BrickPlus/pkg/models"
+	"BrickPlus/security"
 	"net/http"
 	"strconv"
 
@@ -109,6 +110,18 @@ func (config *OrdersConfigurator) deleteOrderHandler(w http.ResponseWriter, r *h
 		render.JSON(w, r, map[string]string{"error": "Order not found"})
 		return
 	}
-	config.OrdersRepository.Delete(order)
+
+	// Vérification d'ownership : seul le propriétaire peut supprimer
+	userIdFromToken, ok := r.Context().Value(security.UserIDKey).(string)
+	if !ok || userIdFromToken != strconv.Itoa(order.IdUser) {
+		render.Status(r, http.StatusForbidden)
+		render.JSON(w, r, map[string]string{"error": "Forbidden: you do not own this order"})
+		return
+	}
+
+	if err := config.OrdersRepository.Delete(order); err != nil {
+		render.JSON(w, r, map[string]string{"error": "Failed to delete order"})
+		return
+	}
 	render.JSON(w, r, map[string]string{"success": "Order successfully deleted"})
 }
