@@ -44,6 +44,7 @@ func (config *ProductsConfigurator) productByIdHandler(w http.ResponseWriter, r 
 	productId := chi.URLParam(r, "id")
 	product, err := config.ProductsRepository.FindProductById(productId)
 	if err != nil {
+		render.Status(r, 404)
 		render.JSON(w, r, map[string]string{"Error": "Failed to load the wanted product"})
 		return
 	}
@@ -54,6 +55,7 @@ func (config *ProductsConfigurator) productByIdHandler(w http.ResponseWriter, r 
 func (config *ProductsConfigurator) addProductHandler(w http.ResponseWriter, r *http.Request) {
 	req := &models.Product{}
 	if err := render.Bind(r, req); err != nil {
+		render.Status(r, 401)
 		render.JSON(w, r, map[string]string{"error": err.Error()})
 		return
 	}
@@ -66,6 +68,7 @@ func (config *ProductsConfigurator) deleteProductHandler(w http.ResponseWriter, 
 	productId := chi.URLParam(r, "id")
 	product, err := config.ProductsRepository.FindProductById(productId)
 	if err != nil {
+		render.Status(r, 404)
 		render.JSON(w, r, map[string]string{"Error": "Failed to find the wanted user"})
 		return
 	}
@@ -77,6 +80,7 @@ func (config *ProductsConfigurator) editProductHandler(w http.ResponseWriter, r 
 	req := &models.Product{}
 	productId := chi.URLParam(r, "id")
 	if err := render.Bind(r, req); err != nil {
+		render.Status(r, 401)
 		render.JSON(w, r, map[string]string{"error": err.Error()})
 		return
 	}

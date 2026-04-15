@@ -3,6 +3,7 @@ package main
 import (
 	"BrickPlus/config"
 	"BrickPlus/pkg/notices"
+	"BrickPlus/pkg/categories"
 	"BrickPlus/pkg/products"
 	"BrickPlus/pkg/themes"
 	"BrickPlus/pkg/users"
@@ -19,7 +20,7 @@ func Routes(configuration *config.Config) *chi.Mux {
 	router.Mount("/api/v1/users", users.Routes(configuration))
 	router.Mount("/api/v1/products", products.Routes(configuration))
 	router.Mount("/api/v1/themes", themes.Routes(configuration))
-	router.Mount("/api/v1/categories", themes.Routes(configuration))
+	router.Mount("/api/v1/categories", categories.Routes(configuration))
 	router.Mount("/api/v1/notices", notices.Routes(configuration))
 	router.Mount("/api/v1/favorites", favorites.Routes(configuration))
 	router.Mount("/api/v1/orders", orders.Routes(configuration))
