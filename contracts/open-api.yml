@@ -1,0 +1,2070 @@
+openapi: 3.1.0
+info:
+  title: BrickPlus API
+  version: 0.2.0
+  description: |
+    Contrat d'API de BrickPlus, aligné sur les issues du projet GitHub.
+
+    Conventions :
+    - Montants en €.
+    - Erreurs au format RFC 9457 (Problem Details).
+    - Mots de passe transmis uniquement en HTTPS et stockés hachés (bcrypt/argon2), jamais en clair (US3.1).
+    - Les routes `x-roles: [admin]` renvoient 403 à un client connecté (US3.1 : un client n'accède pas à l'espace admin).
+
+    Lecture de `security` : `[]` = public ; `[{}, bearerAuth]` = connexion optionnelle ;
+    absent = hérite du `bearerAuth` global, donc connexion obligatoire.
+servers:
+  - url: https://api.brickplus.example/v1
+    description: Production
+  - url: http://localhost:3000/v1
+    description: Développement local
+
+tags:
+  - name: Auth
+    description: EPIC-03 | Gestion des utilisateurs (#17)
+  - name: Utilisateurs
+    description: EPIC-03 | Gestion des utilisateurs (#17)
+  - name: Produits
+    description: EPIC-01 | Gestion des produits (#15)
+  - name: Stock
+    description: EPIC-01 | Gestion des produits (#15)
+  - name: Avis
+    description: EPIC-01 | Gestion des produits (#15)
+  - name: Panier
+    description: EPIC-02 | Gestion des commandes (#16)
+  - name: Paiements
+    description: EPIC-02 | Gestion des commandes (#16)
+  - name: Commandes
+    description: EPIC-02 | Gestion des commandes (#16)
+  - name: Factures
+    description: EPIC-02 | Gestion des commandes (#16)
+  - name: Notifications
+    description: EPIC-02 | Gestion des commandes (#16)
+  - name: Temps réel
+    description: EPIC-02 | Gestion des commandes (#16)
+  - name: Catégories
+    description: EPIC-04 | Divers (#18)
+  - name: Pop-ups
+    description: EPIC-04 | Divers (#18)
+  - name: Rachats
+    description: EPIC-04 | Divers (#18)
+  - name: Fichiers
+    description: Transverse (upload d'images)
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ───────────── EPIC-03 | Gestion des utilisateurs ─────────────
+  /auth/register:
+    post:
+      tags: [Auth]
+      summary: Créer un compte
+      description: |
+        US3.1 (#32) : inscription par email + mot de passe. Le compte créé a toujours le rôle `customer`.
+        Si `cartToken` est fourni, le panier invité est rattaché au nouveau compte (US2.1).
+      x-user-story: US3.1
+      x-github-issue: 32
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/RegisterRequest' }
+      responses:
+        '201':
+          description: Compte créé
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Se connecter (email + mot de passe)
+      description: |
+        US3.1 (#32) : connexion par couple email / mot de passe.
+        Si `cartToken` est fourni, le panier invité est fusionné dans le panier du compte (US2.1).
+      x-user-story: US3.1
+      x-github-issue: 32
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/LoginRequest' }
+      responses:
+        '200':
+          description: Connexion réussie
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/google:
+    post:
+      tags: [Auth]
+      summary: Se connecter ou s'inscrire avec Google
+      description: |
+        US3.1 (#32) : authentification Google. Le front obtient un `idToken` via Google Identity Services,
+        l'API le vérifie et crée le compte s'il n'existe pas encore.
+      x-user-story: US3.1
+      x-github-issue: 32
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [idToken]
+              properties:
+                idToken: { type: string, description: Jeton d'identité Google (JWT) }
+                cartToken: { type: string, description: Panier invité à rattacher }
+      responses:
+        '200':
+          description: Connexion réussie
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /auth/refresh:
+    post:
+      tags: [Auth]
+      summary: Renouveler le jeton d'accès
+      x-user-story: US3.1
+      x-github-issue: 32
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [refreshToken]
+              properties:
+                refreshToken: { type: string }
+      responses:
+        '200':
+          description: Nouveaux jetons
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/TokenPair' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /users/me:
+    get:
+      tags: [Utilisateurs]
+      summary: Consulter son profil
+      description: |
+        US3.2 (#33) : un utilisateur ne peut consulter que son propre profil (pas de route `/users/{id}` côté client).
+        Les commandes et factures du profil sont servies par `GET /orders` et `GET /users/me/invoices`.
+      x-user-story: US3.2
+      x-github-issue: 33
+      responses:
+        '200':
+          description: Profil de l'utilisateur connecté
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    patch:
+      tags: [Utilisateurs]
+      summary: Modifier son profil
+      description: 'US3.2 (#33) : modification du nom d''utilisateur et des informations personnelles.'
+      x-user-story: US3.2
+      x-github-issue: 33
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/UserUpdate' }
+      responses:
+        '200':
+          description: Profil mis à jour
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+    delete:
+      tags: [Utilisateurs]
+      summary: Supprimer son compte
+      description: |
+        **Hors roadmap** : aucune issue ne couvre ce besoin pour l'instant (à créer, ex. « US3.4 | Suppression de compte »).
+        Persona client, donc connexion obligatoire. Droit à l'effacement (RGPD, art. 17).
+
+        Confirmation obligatoire pour éviter une suppression accidentelle :
+        - compte email / mot de passe : `password` ;
+        - compte Google uniquement : `googleIdToken` récent.
+
+        Effets :
+        - Données personnelles effacées : nom, nom d'utilisateur, photo, téléphone, adresses, moyens de paiement enregistrés.
+        - Jetons d'accès et de rafraîchissement révoqués, panier et notifications supprimés.
+        - Commandes et factures **conservées mais anonymisées** : obligation légale de conservation des pièces comptables (10 ans en France).
+        - Avis conservés, auteur affiché « Utilisateur supprimé ». Demandes de rachat détachées du compte.
+        - L'email est libéré : il peut servir à créer un nouveau compte.
+
+        Refusé (409) tant qu'une commande est en cours (payée mais pas encore livrée) ou qu'une rétractation n'est pas terminée,
+        pour ne pas bloquer une livraison ou un remboursement. **Hypothèse** à valider.
+        Un administrateur ne peut pas supprimer son propre compte s'il est le dernier admin (409).
+      x-user-story: null
+      x-github-issue: null
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AccountDeletionRequest' }
+      responses:
+        '204':
+          description: Compte supprimé, jetons révoqués
+        '401':
+          description: Non connecté, ou mot de passe / jeton Google de confirmation invalide
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '409':
+          description: Commande ou rétractation en cours, ou dernier administrateur
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /users/{userId}:
+    parameters:
+      - name: userId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [Utilisateurs]
+      summary: Supprimer le compte d'un utilisateur (admin)
+      description: |
+        **Hors roadmap** (à créer avec la story de suppression de compte).
+        Mêmes effets que `DELETE /users/me` (données personnelles effacées, commandes et factures anonymisées).
+        Usage : demande d'effacement reçue par un autre canal (email, courrier), compte frauduleux ou abusif.
+        - `reason` obligatoire, conservé dans un journal d'audit.
+        - Un administrateur ne peut pas se supprimer par cette route (utiliser `DELETE /users/me`) : 409.
+        - `force: true` passe outre le blocage lié aux commandes en cours (l'admin gère alors la commande manuellement).
+      x-user-story: null
+      x-github-issue: null
+      x-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [reason]
+              properties:
+                reason: { type: string, minLength: 3, maxLength: 500 }
+                force: { type: boolean, default: false }
+      responses:
+        '204':
+          description: Compte supprimé
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Commande en cours (sans `force`) ou tentative de suppression de son propre compte
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /users/me/avatar:
+    put:
+      tags: [Utilisateurs]
+      summary: Changer sa photo de profil
+      x-user-story: US3.2
+      x-github-issue: 33
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary, description: 'Image JPEG, PNG ou WebP, 5 Mo max' }
+      responses:
+        '200':
+          description: Photo mise à jour
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/User' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /users/me/password:
+    put:
+      tags: [Utilisateurs]
+      summary: Changer son mot de passe
+      description: Non disponible pour un compte créé uniquement via Google (409).
+      x-user-story: US3.2
+      x-github-issue: 33
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [currentPassword, newPassword]
+              properties:
+                currentPassword: { type: string, format: password }
+                newPassword: { type: string, format: password, minLength: 8 }
+      responses:
+        '204':
+          description: Mot de passe modifié
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /users/me/payment-methods:
+    get:
+      tags: [Utilisateurs]
+      summary: Lister ses moyens de paiement enregistrés
+      description: |
+        US3.2 (#33) : moyen de paiement enregistré pour accélérer les commandes suivantes.
+        Seules des références tokenisées chez le prestataire de paiement sont stockées (jamais le numéro de carte).
+      x-user-story: [US3.2, US2.2]
+      x-github-issue: [33, 26]
+      responses:
+        '200':
+          description: Moyens de paiement
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/PaymentMethod' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Utilisateurs]
+      summary: Enregistrer un moyen de paiement
+      x-user-story: US3.2
+      x-github-issue: 33
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PaymentMethodCreate' }
+      responses:
+        '201':
+          description: Moyen de paiement enregistré
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/PaymentMethod' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /users/me/payment-methods/{paymentMethodId}:
+    parameters:
+      - name: paymentMethodId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    delete:
+      tags: [Utilisateurs]
+      summary: Supprimer un moyen de paiement enregistré
+      x-user-story: US3.2
+      x-github-issue: 33
+      responses:
+        '204':
+          description: Supprimé
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /users/me/invoices:
+    get:
+      tags: [Factures]
+      summary: Lister ses factures
+      description: 'US3.2 (#33) et US2.7 (#31) : le profil affiche toutes les factures de l''utilisateur.'
+      x-user-story: [US3.2, US2.7]
+      x-github-issue: [33, 31]
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Page de factures
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Invoice' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /early-access/subscriptions:
+    post:
+      tags: [Utilisateurs]
+      summary: Demander l'accès anticipé
+      description: |
+        **À préciser.** L'issue US3.3 (#34) n'a pas de description.
+        Indice venant de US1.3 (#21) : certains produits sont « en accès anticipé » et masqués aux utilisateurs non éligibles.
+        Hypothèse : un client s'inscrit pour voir et acheter en avant-première les produits marqués `earlyAccess`.
+      x-user-story: US3.3
+      x-github-issue: 34
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                message: { type: string, maxLength: 500 }
+      responses:
+        '201':
+          description: Demande enregistrée
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/EarlyAccessSubscription' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ───────────── EPIC-01 | Gestion des produits ─────────────
+  /products:
+    get:
+      tags: [Produits]
+      summary: Consulter et rechercher les produits
+      description: |
+        US1.1 (#19) : liste complète consultable sans être connecté, avec tris et filtres.
+        - Tris : popularité, date de sortie, moyenne des avis, prix.
+        - Filtres : type de LEGO, état du set, gamme, sous-thème, état de la figurine, disponibilité.
+
+        US1.3 (#21) : le paramètre `q` couvre la recherche.
+        - Les produits pour lesquels l'utilisateur n'est pas éligible sont masqués des résultats de recherche
+          (produits hors stock, produits en accès anticipé si l'utilisateur n'y a pas accès).
+        - Si un seul produit correspond, le front redirige directement vers sa page ; sinon il affiche la liste.
+          `meta.total` permet ce choix sans requête supplémentaire.
+      x-user-story: [US1.1, US1.3]
+      x-github-issue: [19, 21]
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          description: Recherche texte (nom, description, référence du set)
+          schema: { type: string, maxLength: 100 }
+        - name: categoryId
+          in: query
+          description: Gamme (catégorie, ex. Technic, Pokémon)
+          schema: { type: string, format: uuid }
+        - name: subtheme
+          in: query
+          description: Sous-thème
+          schema: { type: string }
+        - name: legoType
+          in: query
+          schema: { $ref: '#/components/schemas/LegoType' }
+        - name: condition
+          in: query
+          description: État du set
+          schema: { $ref: '#/components/schemas/ProductCondition' }
+        - name: figureCondition
+          in: query
+          description: État de la figurine
+          schema: { $ref: '#/components/schemas/ProductCondition' }
+        - name: minPrice
+          in: query
+          schema: { type: integer, minimum: 0 }
+        - name: maxPrice
+          in: query
+          schema: { type: integer, minimum: 0 }
+        - name: inStock
+          in: query
+          description: N'afficher que les produits actuellement disponibles. Forcé à `true` quand `q` est renseigné (US1.3).
+          schema: { type: boolean }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [popularity, -popularity, releaseDate, -releaseDate, rating, -rating, price, -price, name, -name, createdAt, -createdAt]
+            default: -popularity
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Page de produits
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Product' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+    post:
+      tags: [Produits]
+      summary: Ajouter un produit
+      description: |
+        US1.2 (#20) :
+        - Réservé au rôle administrateur.
+        - Nombre d'images illimité (URLs obtenues via `POST /uploads`).
+        - Formulaire bloquant : tous les produits ont le même format (champs requis validés, 422 sinon).
+        - État choisi dans une liste fermée (`ProductCondition`).
+        - Description en texte enrichi simple (Markdown) pour mettre des informations en valeur.
+      x-user-story: US1.2
+      x-github-issue: 20
+      x-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductCreate' }
+      responses:
+        '201':
+          description: Produit créé
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Product' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /products/{productId}:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+    get:
+      tags: [Produits]
+      summary: Consulter le détail d'un produit
+      description: |
+        US1.6 (#24) : consultable sans être connecté, affiche toutes les informations du produit sans exception.
+        Les avis sont lus via `GET /products/{productId}/reviews`.
+        La quantité restante (`stockQuantity`) est renvoyée à jour (US1.4).
+      x-user-story: [US1.6, US1.4]
+      x-github-issue: [24, 22]
+      security:
+        - {}
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Détail du produit
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Product' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Produits]
+      summary: Modifier un produit
+      description: 'Permet notamment de rattacher un produit à une catégorie (US4.2, #36).'
+      x-user-story: [US1.2, US4.2]
+      x-github-issue: [20, 36]
+      x-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ProductUpdate' }
+      responses:
+        '200':
+          description: Produit mis à jour
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Product' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /products/{productId}/stock:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+    get:
+      tags: [Stock]
+      summary: Consulter le stock d'un produit
+      x-user-story: US1.4
+      x-github-issue: 22
+      x-roles: [admin]
+      responses:
+        '200':
+          description: Stock courant
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Stock' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Stock]
+      summary: Ajuster le stock d'un produit
+      description: |
+        US1.4 (#22) :
+        - Augmentation rapide et intuitive : `delta` positif (ex. +1, +5) depuis la fiche produit admin.
+        - Fournir `quantity` (valeur absolue) ou `delta`, pas les deux.
+        - Le stock baisse automatiquement à la validation (paiement confirmé) d'une commande, sans appel à cette route.
+        - À 0, le produit passe automatiquement à `availability: unavailable`.
+        - Le changement est visible immédiatement sur la page produit (`stockQuantity`) et diffusé sur `GET /events`.
+      x-user-story: US1.4
+      x-github-issue: 22
+      x-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/StockUpdate' }
+      responses:
+        '200':
+          description: Stock mis à jour
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Stock' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /products/{productId}/reviews:
+    parameters:
+      - $ref: '#/components/parameters/ProductId'
+    get:
+      tags: [Avis]
+      summary: Lister les avis d'un produit
+      description: 'US1.6 (#24) : les avis sont lisibles depuis la page produit, sans connexion. Les avis masqués par modération ne sont pas renvoyés.'
+      x-user-story: [US1.5, US1.6]
+      x-github-issue: [23, 24]
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Page d'avis
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Review' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Avis]
+      summary: Ajouter un avis
+      description: |
+        US1.5 (#23) :
+        - Un visiteur non connecté ne peut pas laisser d'avis (401).
+        - Un utilisateur qui n'a pas acheté le produit ne peut pas laisser d'avis (403).
+        - Les avis ne sont pas filtrés automatiquement : ils sont publiés puis modérés a posteriori sur le langage
+          par un administrateur (`PATCH /reviews/{reviewId}`).
+        - Hypothèse : un seul avis par produit et par client (409).
+      x-user-story: US1.5
+      x-github-issue: 23
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/ReviewCreate' }
+      responses:
+        '201':
+          description: Avis publié
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Review' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403':
+          description: L'utilisateur n'a pas acheté ce produit
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /reviews/{reviewId}:
+    parameters:
+      - name: reviewId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Avis]
+      summary: Modérer un avis
+      description: 'US1.5 (#23) : modération humaine du langage, l''administrateur peut masquer ou republier un avis.'
+      x-user-story: US1.5
+      x-github-issue: 23
+      x-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: '#/components/schemas/ReviewStatus' }
+                moderationReason: { type: string, maxLength: 500 }
+      responses:
+        '200':
+          description: Avis mis à jour
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Review' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  # ───────────── EPIC-04 | Divers ─────────────
+  /categories:
+    get:
+      tags: [Catégories]
+      summary: Consulter les catégories disponibles
+      description: |
+        US4.1 (#35) : toutes les catégories sont affichées avec leurs informations essentielles (image et nom),
+        et une recherche permet de trouver facilement une catégorie (`q`).
+        US4.2 (#36) : seules les catégories liées à au moins un produit sont renvoyées.
+        Un administrateur peut passer `includeEmpty=true` pour voir aussi les catégories vides.
+      x-user-story: [US4.1, US4.2]
+      x-github-issue: [35, 36]
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - name: q
+          in: query
+          description: Recherche sur le nom de la catégorie
+          schema: { type: string, maxLength: 100 }
+        - name: includeEmpty
+          in: query
+          description: Admin uniquement, inclut les catégories sans produit
+          schema: { type: boolean, default: false }
+      responses:
+        '200':
+          description: Liste des catégories
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Category' }
+    post:
+      tags: [Catégories]
+      summary: Ajouter une catégorie
+      description: |
+        US4.2 (#36) : création simple (nom, image). Les produits y sont rattachés via `categoryId`
+        (`POST /products` ou `PATCH /products/{productId}`).
+      x-user-story: US4.2
+      x-github-issue: 36
+      x-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryCreate' }
+      responses:
+        '201':
+          description: Catégorie créée
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Category' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /categories/{categoryId}:
+    parameters:
+      - name: categoryId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Catégories]
+      summary: Modifier une catégorie
+      description: |
+        US4.2 (#36) : une catégorie peut être modifiée si sa définition change.
+        Une catégorie ne peut pas être supprimée : il n'existe volontairement pas de `DELETE`.
+      x-user-story: US4.2
+      x-github-issue: 36
+      x-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CategoryUpdate' }
+      responses:
+        '200':
+          description: Catégorie mise à jour
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Category' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /popups:
+    get:
+      tags: [Pop-ups]
+      summary: Récupérer les pop-ups actives à afficher
+      description: |
+        US4.3 (#37) :
+        - Renvoie uniquement les annonces dont la période `startsAt`–`endsAt` couvre la date courante :
+          une annonce dépassée n'apparaît plus.
+        - Le front affiche chaque annonce une fois par nouvelle session de navigation
+          (mémorisation côté client, ex. `sessionStorage`).
+        - `displayType` indique s'il s'agit d'une pop-up à l'arrivée ou d'un bandeau d'actualité en haut du site.
+      x-user-story: US4.3
+      x-github-issue: 37
+      security:
+        - {}
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Pop-ups actives
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Popup' }
+    post:
+      tags: [Pop-ups]
+      summary: Ajouter une pop-up ou un bandeau
+      description: 'US4.3 (#37) : l''administrateur choisit entre bandeau en haut du site et pop-up à l''arrivée, et fixe la période d''affichage.'
+      x-user-story: US4.3
+      x-github-issue: 37
+      x-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PopupCreate' }
+      responses:
+        '201':
+          description: Pop-up créée
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Popup' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /popups/{popupId}:
+    parameters:
+      - name: popupId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    patch:
+      tags: [Pop-ups]
+      summary: Modifier une pop-up (ex. avancer sa date de fin)
+      x-user-story: US4.3
+      x-github-issue: 37
+      x-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PopupUpdate' }
+      responses:
+        '200':
+          description: Pop-up mise à jour
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Popup' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /buyback-requests:
+    get:
+      tags: [Rachats]
+      summary: Lister les demandes de rachat
+      description: |
+        US4.4 (#38) : un utilisateur connecté suit l'avancement de ses demandes depuis son profil
+        (uniquement celles faites en étant connecté). Un administrateur voit toutes les demandes.
+      x-user-story: US4.4
+      x-github-issue: 38
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/BuybackStatus' }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Page de demandes de rachat
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/BuybackRequest' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      tags: [Rachats]
+      summary: Faire une demande de rachat
+      description: |
+        US4.4 (#38) : un utilisateur propose de vendre ses sets LEGO à BrickPlus.
+        - Possible sans être connecté.
+        - Obligatoire : adresse email, description du set, entre 1 et 5 images.
+        - Un administrateur est notifié à chaque nouvelle demande (notification `buyback_created`).
+        - Si l'utilisateur est connecté, la demande est rattachée à son compte et suivie dans son profil.
+        - Le demandeur reçoit les mises à jour par email, même s'il est connecté.
+      x-user-story: US4.4
+      x-github-issue: 38
+      security:
+        - {}
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema: { $ref: '#/components/schemas/BuybackCreate' }
+            encoding:
+              images:
+                contentType: image/jpeg, image/png, image/webp
+      responses:
+        '201':
+          description: Demande enregistrée
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuybackRequest' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /buyback-requests/{buybackId}:
+    parameters:
+      - name: buybackId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    get:
+      tags: [Rachats]
+      summary: Consulter une demande de rachat
+      description: Le propriétaire de la demande ou un administrateur.
+      x-user-story: US4.4
+      x-github-issue: 38
+      responses:
+        '200':
+          description: Demande de rachat
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuybackRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    patch:
+      tags: [Rachats]
+      summary: Traiter une demande de rachat
+      description: Chaque changement de statut déclenche un email au demandeur et une notification `buyback_update` s'il a un compte.
+      x-user-story: US4.4
+      x-github-issue: 38
+      x-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BuybackDecision' }
+      responses:
+        '200':
+          description: Demande mise à jour
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/BuybackRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /uploads:
+    post:
+      tags: [Fichiers]
+      summary: Téléverser une image
+      description: Renvoie l'URL à utiliser dans `images` (produit, US1.2) ou `imageUrl` (catégorie, US4.2 ; pop-up, US4.3).
+      x-user-story: [US1.2, US4.2, US4.3]
+      x-github-issue: [20, 36, 37]
+      x-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [file]
+              properties:
+                file: { type: string, format: binary }
+      responses:
+        '201':
+          description: Fichier stocké
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [url]
+                properties:
+                  url: { type: string, format: uri }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  # ───────────── EPIC-02 | Gestion des commandes ─────────────
+  /cart:
+    get:
+      tags: [Panier]
+      summary: Consulter son panier
+      description: |
+        US2.1 (#25) : le panier fonctionne sans connexion.
+        - Visiteur : panier identifié par l'en-tête `X-Cart-Token` (renvoyé à la création du panier).
+        - Utilisateur connecté : panier lié au compte. Le panier invité est fusionné à la connexion (`cartToken`).
+      x-user-story: US2.1
+      x-github-issue: 25
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CartToken'
+      responses:
+        '200':
+          description: Panier courant
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cart' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /cart/items:
+    post:
+      tags: [Panier]
+      summary: Ajouter un produit au panier
+      description: |
+        US2.1 (#25) :
+        - Pas besoin d'être connecté. Sans `X-Cart-Token`, un nouveau panier invité est créé et son `token` renvoyé.
+        - `quantity` permet d'ajouter plusieurs exemplaires en un seul clic.
+        - Ajouter un autre produit conserve ceux déjà présents. Si le produit est déjà dans le panier, les quantités s'additionnent.
+        - 409 si la quantité demandée dépasse le stock disponible.
+      x-user-story: US2.1
+      x-github-issue: 25
+      security:
+        - {}
+        - bearerAuth: []
+      parameters:
+        - $ref: '#/components/parameters/CartToken'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CartItemCreate' }
+      responses:
+        '201':
+          description: Panier mis à jour
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cart' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /cart/items/{itemId}:
+    parameters:
+      - name: itemId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+      - $ref: '#/components/parameters/CartToken'
+    patch:
+      tags: [Panier]
+      summary: Modifier la quantité d'un article du panier
+      x-user-story: US2.1
+      x-github-issue: 25
+      security:
+        - {}
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [quantity]
+              properties:
+                quantity: { type: integer, minimum: 1 }
+      responses:
+        '200':
+          description: Panier mis à jour
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cart' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    delete:
+      tags: [Panier]
+      summary: Retirer un article du panier
+      x-user-story: US2.1
+      x-github-issue: 25
+      security:
+        - {}
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Panier mis à jour
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Cart' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /cart/checkout:
+    post:
+      tags: [Panier]
+      summary: Valider son panier et lancer le paiement
+      description: |
+        US2.2 (#26) :
+        - Paiement par carte bancaire ou par PayPal (`paymentMethod`), ou avec un moyen enregistré (`savedPaymentMethodId`, US3.2).
+        - La commande est créée au statut `pending` et n'est **validée qu'après paiement** :
+          elle passe à `paid` à la confirmation du prestataire (`POST /payments/webhooks/{provider}`).
+        - À la validation : décrément du stock (US1.4), génération de la facture (US2.7), notification admin (US2.5).
+        - Connexion obligatoire : la story est écrite « en tant que client ». Le panier invité (US2.1) est rattaché au compte à la connexion.
+      x-user-story: US2.2
+      x-github-issue: 26
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/CheckoutRequest' }
+      responses:
+        '201':
+          description: Commande créée en attente de paiement
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/CheckoutResponse' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409':
+          description: Panier vide ou stock insuffisant
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /payments/webhooks/{provider}:
+    parameters:
+      - name: provider
+        in: path
+        required: true
+        schema: { type: string, enum: [card, paypal] }
+    post:
+      tags: [Paiements]
+      summary: Recevoir la confirmation de paiement du prestataire
+      description: |
+        US2.2 (#26) : appelé par le prestataire (ex. Stripe pour la carte, PayPal).
+        Authentifié par la signature du prestataire, pas par JWT. Passe la commande à `paid` en cas de succès.
+      x-user-story: US2.2
+      x-github-issue: 26
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { type: object, additionalProperties: true }
+      responses:
+        '204':
+          description: Événement traité
+        '400':
+          description: Signature invalide
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /orders:
+    get:
+      tags: [Commandes]
+      summary: Consulter les commandes
+      description: |
+        US2.4 (#28) :
+        - Un administrateur voit toutes les commandes et peut les trier par statut ou par date de réception.
+        - Un client ne voit que ses propres commandes (jamais celles des autres).
+        - L'affichage se met à jour automatiquement à chaque nouvelle commande via `GET /events` (événement `order.created`).
+      x-user-story: [US2.4, US2.6, US3.2]
+      x-github-issue: [28, 30, 33]
+      parameters:
+        - name: status
+          in: query
+          schema: { $ref: '#/components/schemas/OrderStatus' }
+        - name: sort
+          in: query
+          schema:
+            type: string
+            enum: [createdAt, -createdAt, status, -status]
+            default: -createdAt
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Page de commandes
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Order' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /orders/{orderId}:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    get:
+      tags: [Commandes]
+      summary: Consulter le détail d'une commande
+      description: Un client qui demande la commande d'un autre client reçoit 404 (US2.4).
+      x-user-story: US2.4
+      x-github-issue: 28
+      responses:
+        '200':
+          description: Détail de la commande
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /orders/{orderId}/status:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    patch:
+      tags: [Commandes]
+      summary: Changer le statut d'une commande
+      description: |
+        US2.6 (#30) :
+        - Un administrateur change le statut d'une commande.
+        - L'affichage client se met à jour automatiquement (événement `order.status_changed` sur `GET /events`).
+        - Le client est notifié automatiquement (notification `order_status_changed` + email).
+        - 409 si la transition n'est pas autorisée (ex. `delivered` vers `pending`).
+      x-user-story: US2.6
+      x-github-issue: 30
+      x-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: '#/components/schemas/OrderStatus' }
+                trackingNumber: { type: string }
+      responses:
+        '200':
+          description: Commande mise à jour
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Order' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  /orders/{orderId}/withdrawal:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    get:
+      tags: [Commandes]
+      summary: Suivre sa demande de rétractation
+      description: 'US2.3 (#27) : statut de la demande (envoyée, traitée, terminée) et informations de retour une fois traitée.'
+      x-user-story: US2.3
+      x-github-issue: 27
+      responses:
+        '200':
+          description: Demande de rétractation
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Withdrawal' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Commandes]
+      summary: Demander la rétractation d'une commande
+      description: |
+        US2.3 (#27) : le client dépose sa demande directement sur le site pour retourner un produit et être remboursé.
+        La demande démarre au statut `submitted`. Le client est tenu informé en temps réel
+        (événement `withdrawal.updated` sur `GET /events` + notification `withdrawal_update`).
+        Hypothèse : délai légal de 14 jours après livraison (409 au-delà).
+      x-user-story: US2.3
+      x-github-issue: 27
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                reason: { type: string, maxLength: 500 }
+                items:
+                  type: array
+                  description: Articles retournés. Absent = toute la commande.
+                  items:
+                    type: object
+                    required: [productId, quantity]
+                    properties:
+                      productId: { type: string, format: uuid }
+                      quantity: { type: integer, minimum: 1 }
+      responses:
+        '201':
+          description: Demande de rétractation enregistrée
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Withdrawal' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Délai de rétractation dépassé, demande déjà existante ou commande non éligible
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+    patch:
+      tags: [Commandes]
+      summary: Traiter une demande de rétractation
+      description: |
+        US2.3 (#27) : l'administrateur fait avancer la demande. En passant à `processed`, il fournit
+        les informations de retour (`returnInstructions`), envoyées au client.
+      x-user-story: US2.3
+      x-github-issue: 27
+      x-roles: [admin]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/WithdrawalUpdate' }
+      responses:
+        '200':
+          description: Demande mise à jour
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Withdrawal' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+
+  /orders/{orderId}/invoice:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    get:
+      tags: [Factures]
+      summary: Télécharger la facture d'une commande
+      description: |
+        US2.7 (#31) :
+        - Facture générée automatiquement à la validation de la commande.
+        - Téléchargeable en PDF depuis le profil.
+        - Un client n'accède qu'aux factures de ses propres commandes (404 sinon).
+        - La facture indique le statut du paiement, y compris en cas de paiement en plusieurs fois.
+        - Quand la facture change (ex. commande passée à payée), la nouvelle version remplace l'ancienne :
+          cette route renvoie toujours la dernière version.
+      x-user-story: US2.7
+      x-github-issue: 31
+      responses:
+        '200':
+          description: Facture au format PDF
+          content:
+            application/pdf:
+              schema: { type: string, format: binary }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409':
+          description: Facture pas encore disponible (commande non validée)
+          content:
+            application/problem+json:
+              schema: { $ref: '#/components/schemas/Problem' }
+
+  /notifications:
+    get:
+      tags: [Notifications]
+      summary: Consulter ses notifications
+      description: |
+        - US2.5 (#29) : l'administrateur reçoit une notification à chaque nouvelle commande (`order_created`),
+          sur le site et par email, pour qu'aucune commande ne reste longtemps sans traitement.
+        - US2.6 (#30) : le client est notifié des changements de statut (`order_status_changed`).
+        - US2.3 (#27) : le client est notifié de l'avancement de sa rétractation (`withdrawal_update`).
+        - US4.4 (#38) : l'administrateur est notifié des nouvelles demandes de rachat (`buyback_created`),
+          le client de leur avancement (`buyback_update`).
+      x-user-story: [US2.5, US2.6, US2.3, US4.4]
+      x-github-issue: [29, 30, 27, 38]
+      parameters:
+        - name: unread
+          in: query
+          schema: { type: boolean }
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: Page de notifications
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, meta]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Notification' }
+                  meta: { $ref: '#/components/schemas/PageMeta' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+  /notifications/{notificationId}/read:
+    parameters:
+      - name: notificationId
+        in: path
+        required: true
+        schema: { type: string, format: uuid }
+    post:
+      tags: [Notifications]
+      summary: Marquer une notification comme lue
+      x-user-story: US2.5
+      x-github-issue: 29
+      responses:
+        '204':
+          description: Notification marquée comme lue
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
+  /events:
+    get:
+      tags: [Temps réel]
+      summary: Flux d'événements temps réel (Server-Sent Events)
+      description: |
+        Mises à jour automatiques demandées par plusieurs issues :
+        - `order.created` (admin) : US2.4 (#28), la liste des commandes se met à jour à chaque nouvelle commande.
+        - `order.status_changed` (client concerné et admin) : US2.6 (#30).
+        - `withdrawal.updated` (client concerné et admin) : US2.3 (#27), suivi en temps réel.
+        - `notification.created` : US2.5 (#29), US4.4 (#38).
+        - `stock.updated` (tous, y compris visiteurs) : US1.4 (#22), quantité restante affichée instantanément sur la page produit.
+        Chaque message SSE a un champ `event` (type) et un champ `data` (JSON `RealtimeEvent`).
+
+        Connexion optionnelle : un visiteur non connecté ne reçoit que `stock.updated` ;
+        les autres événements sont filtrés selon l'utilisateur connecté (ses commandes) ou le rôle admin (tout).
+      x-user-story: [US2.3, US2.4, US2.5, US2.6, US1.4]
+      x-github-issue: [27, 28, 29, 30, 22]
+      security:
+        - {}
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Flux SSE ouvert
+          content:
+            text/event-stream:
+              schema: { type: string }
+              x-event-schema: { $ref: '#/components/schemas/RealtimeEvent' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  parameters:
+    Page:
+      name: page
+      in: query
+      schema: { type: integer, minimum: 1, default: 1 }
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+    ProductId:
+      name: productId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    OrderId:
+      name: orderId
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+    CartToken:
+      name: X-Cart-Token
+      in: header
+      required: false
+      description: Identifiant du panier invité (US2.1). Ignoré si l'utilisateur est connecté.
+      schema: { type: string }
+
+  responses:
+    Unauthorized:
+      description: Authentification manquante ou invalide
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Forbidden:
+      description: Droits insuffisants
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    NotFound:
+      description: Ressource introuvable
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    Conflict:
+      description: Conflit avec l'état actuel de la ressource
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/Problem' }
+    ValidationError:
+      description: Données invalides
+      content:
+        application/problem+json:
+          schema: { $ref: '#/components/schemas/ValidationProblem' }
+
+  schemas:
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference, example: 'about:blank' }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        instance: { type: string }
+    ValidationProblem:
+      allOf:
+        - $ref: '#/components/schemas/Problem'
+        - type: object
+          properties:
+            errors:
+              type: array
+              items:
+                type: object
+                required: [field, message]
+                properties:
+                  field: { type: string }
+                  message: { type: string }
+
+    PageMeta:
+      type: object
+      required: [page, limit, total]
+      properties:
+        page: { type: integer }
+        limit: { type: integer }
+        total: { type: integer }
+
+    # Utilisateurs
+    RegisterRequest:
+      type: object
+      required: [email, password, firstName, lastName]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, minLength: 8, format: password }
+        firstName: { type: string }
+        lastName: { type: string }
+        username: { type: string, minLength: 3, maxLength: 30 }
+        cartToken: { type: string, description: Panier invité à rattacher au compte (US2.1) }
+    LoginRequest:
+      type: object
+      required: [email, password]
+      properties:
+        email: { type: string, format: email }
+        password: { type: string, format: password }
+        cartToken: { type: string, description: Panier invité à fusionner (US2.1) }
+    TokenPair:
+      type: object
+      required: [accessToken, refreshToken, expiresIn]
+      properties:
+        accessToken: { type: string }
+        refreshToken: { type: string }
+        expiresIn: { type: integer, description: Durée de validité en secondes }
+    User:
+      type: object
+      required: [id, email, firstName, lastName, role]
+      properties:
+        id: { type: string, format: uuid }
+        email: { type: string, format: email }
+        username: { type: string }
+        firstName: { type: string }
+        lastName: { type: string }
+        avatarUrl: { type: string, format: uri }
+        role: { type: string, enum: [customer, admin] }
+        authProviders:
+          type: array
+          items: { type: string, enum: [password, google] }
+        earlyAccess: { type: boolean, description: A accès aux produits en avant-première (US3.3) }
+        phone: { type: string }
+        shippingAddress: { $ref: '#/components/schemas/Address' }
+        createdAt: { type: string, format: date-time }
+    UserUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        username: { type: string, minLength: 3, maxLength: 30 }
+        firstName: { type: string }
+        lastName: { type: string }
+        phone: { type: string }
+        shippingAddress: { $ref: '#/components/schemas/Address' }
+    AccountDeletionRequest:
+      type: object
+      description: Fournir `password` (compte email) ou `googleIdToken` (compte Google uniquement).
+      oneOf:
+        - required: [password]
+        - required: [googleIdToken]
+      properties:
+        password: { type: string, format: password }
+        googleIdToken: { type: string, description: Jeton Google obtenu juste avant la suppression }
+        reason: { type: string, maxLength: 500, description: Motif facultatif (statistiques) }
+    Address:
+      type: object
+      required: [line1, postalCode, city, country]
+      properties:
+        line1: { type: string }
+        line2: { type: string }
+        postalCode: { type: string }
+        city: { type: string }
+        country: { type: string, description: Code ISO 3166-1 alpha-2, example: FR }
+    PaymentMethod:
+      type: object
+      required: [id, type]
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [card, paypal] }
+        brand: { type: string, example: visa }
+        last4: { type: string, pattern: '^[0-9]{4}$' }
+        expMonth: { type: integer, minimum: 1, maximum: 12 }
+        expYear: { type: integer }
+        paypalEmail: { type: string, format: email }
+        isDefault: { type: boolean }
+    PaymentMethodCreate:
+      type: object
+      required: [type, providerToken]
+      properties:
+        type: { type: string, enum: [card, paypal] }
+        providerToken: { type: string, description: Jeton émis par le prestataire de paiement côté front }
+        isDefault: { type: boolean, default: false }
+    EarlyAccessSubscription:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: string, format: uuid }
+        status: { type: string, enum: [pending, approved, rejected] }
+        createdAt: { type: string, format: date-time }
+
+    # Produits
+    ProductCondition:
+      type: string
+      description: |
+        État (US1.1, US1.2). L'issue #20 cite « neuf » et « occasion avec notice avec boîte… » ;
+        les autres valeurs sont une **hypothèse** à valider.
+      enum: [new, used_complete_with_box, used_complete_no_box, used_incomplete]
+    LegoType:
+      type: string
+      description: Type de LEGO (filtre US1.1). **Hypothèse** sur les valeurs.
+      enum: [set, minifigure, part, bulk]
+    ProductAvailability:
+      type: string
+      description: Passe automatiquement à `unavailable` quand le stock atteint 0 (US1.4).
+      enum: [available, unavailable]
+    Product:
+      type: object
+      required: [id, name, price, currency, categoryId, condition, availability, stockQuantity, inStock]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string }
+        description: { type: string, description: Texte enrichi (Markdown) }
+        reference: { type: string, description: Numéro de set LEGO, example: '42115' }
+        price: { type: integer, minimum: 0, description: Prix TTC en centimes }
+        currency: { type: string, enum: [EUR] }
+        categoryId: { type: string, format: uuid, description: Gamme }
+        subtheme: { type: string }
+        legoType: { $ref: '#/components/schemas/LegoType' }
+        condition: { $ref: '#/components/schemas/ProductCondition' }
+        figureCondition: { $ref: '#/components/schemas/ProductCondition' }
+        releaseDate: { type: string, format: date, description: Date de sortie du set }
+        images:
+          type: array
+          description: Nombre illimité (US1.2)
+          items: { type: string, format: uri }
+        stockQuantity: { type: integer, minimum: 0, description: Quantité restante affichée sur la page produit (US1.4) }
+        availability: { $ref: '#/components/schemas/ProductAvailability' }
+        inStock: { type: boolean, description: Équivaut à `availability == available` }
+        earlyAccess: { type: boolean, description: Produit réservé à l'accès anticipé (US1.3, US3.3) }
+        popularity: { type: integer, description: Score servant au tri par popularité }
+        averageRating: { type: number, minimum: 0, maximum: 5 }
+        reviewCount: { type: integer }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    ProductCreate:
+      type: object
+      required: [name, description, price, categoryId, condition, legoType, images]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string, description: Texte enrichi (Markdown) }
+        reference: { type: string }
+        price: { type: integer, minimum: 0 }
+        categoryId: { type: string, format: uuid }
+        subtheme: { type: string }
+        legoType: { $ref: '#/components/schemas/LegoType' }
+        condition: { $ref: '#/components/schemas/ProductCondition' }
+        figureCondition: { $ref: '#/components/schemas/ProductCondition' }
+        releaseDate: { type: string, format: date }
+        images:
+          type: array
+          minItems: 1
+          items: { type: string, format: uri }
+        earlyAccess: { type: boolean, default: false }
+        initialStock: { type: integer, minimum: 0, default: 0 }
+    ProductUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 200 }
+        description: { type: string }
+        reference: { type: string }
+        price: { type: integer, minimum: 0 }
+        categoryId: { type: string, format: uuid }
+        subtheme: { type: string }
+        legoType: { $ref: '#/components/schemas/LegoType' }
+        condition: { $ref: '#/components/schemas/ProductCondition' }
+        figureCondition: { $ref: '#/components/schemas/ProductCondition' }
+        releaseDate: { type: string, format: date }
+        images:
+          type: array
+          items: { type: string, format: uri }
+        earlyAccess: { type: boolean }
+    Stock:
+      type: object
+      required: [productId, quantity, availability]
+      properties:
+        productId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 0 }
+        availability: { $ref: '#/components/schemas/ProductAvailability' }
+        updatedAt: { type: string, format: date-time }
+    StockUpdate:
+      type: object
+      oneOf:
+        - required: [quantity]
+        - required: [delta]
+      properties:
+        quantity: { type: integer, minimum: 0 }
+        delta: { type: integer, description: 'Ajout (positif) ou retrait (négatif). Le stock ne peut pas passer sous 0 (422).' }
+        reason: { type: string }
+    ReviewStatus:
+      type: string
+      description: Publié directement, masqué après modération humaine (US1.5).
+      enum: [published, hidden]
+    Review:
+      type: object
+      required: [id, productId, rating, author, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string }
+        status: { $ref: '#/components/schemas/ReviewStatus' }
+        verifiedPurchase: { type: boolean, const: true }
+        author:
+          type: object
+          properties:
+            username: { type: string }
+            avatarUrl: { type: string, format: uri }
+        createdAt: { type: string, format: date-time }
+    ReviewCreate:
+      type: object
+      required: [rating]
+      properties:
+        rating: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string, maxLength: 2000 }
+
+    # Catégories et divers
+    Category:
+      type: object
+      required: [id, name, slug, imageUrl]
+      properties:
+        id: { type: string, format: uuid }
+        name: { type: string, example: Technic }
+        slug: { type: string, example: technic }
+        imageUrl: { type: string, format: uri }
+        description: { type: string }
+        productCount: { type: integer, minimum: 0 }
+    CategoryCreate:
+      type: object
+      required: [name, imageUrl]
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        imageUrl: { type: string, format: uri }
+        description: { type: string }
+    CategoryUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        name: { type: string, minLength: 1, maxLength: 100 }
+        imageUrl: { type: string, format: uri }
+        description: { type: string }
+    Popup:
+      type: object
+      required: [id, displayType, title, startsAt, endsAt]
+      properties:
+        id: { type: string, format: uuid }
+        displayType: { type: string, enum: [popup, banner], description: 'Pop-up à l''arrivée ou bandeau d''actualité en haut du site (US4.3)' }
+        title: { type: string }
+        content: { type: string }
+        imageUrl: { type: string, format: uri }
+        linkUrl: { type: string, format: uri }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+    PopupCreate:
+      type: object
+      required: [displayType, title, startsAt, endsAt]
+      properties:
+        displayType: { type: string, enum: [popup, banner] }
+        title: { type: string, maxLength: 120 }
+        content: { type: string, maxLength: 1000 }
+        imageUrl: { type: string, format: uri }
+        linkUrl: { type: string, format: uri }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+    PopupUpdate:
+      type: object
+      minProperties: 1
+      properties:
+        displayType: { type: string, enum: [popup, banner] }
+        title: { type: string, maxLength: 120 }
+        content: { type: string, maxLength: 1000 }
+        imageUrl: { type: string, format: uri }
+        linkUrl: { type: string, format: uri }
+        startsAt: { type: string, format: date-time }
+        endsAt: { type: string, format: date-time }
+    BuybackStatus:
+      type: string
+      enum: [pending, in_review, accepted, rejected, completed]
+    BuybackRequest:
+      type: object
+      required: [id, email, status, description, images, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        userId: { type: ['string', 'null'], format: uuid, description: Null si la demande a été faite sans être connecté }
+        email: { type: string, format: email }
+        description: { type: string }
+        images:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items: { type: string, format: uri }
+        proposedPrice: { type: integer, minimum: 0, description: Prix demandé en centimes }
+        offeredPrice: { type: integer, minimum: 0, description: Prix proposé par la boutique en centimes }
+        adminComment: { type: string }
+        status: { $ref: '#/components/schemas/BuybackStatus' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    BuybackCreate:
+      type: object
+      required: [email, description, images]
+      properties:
+        email: { type: string, format: email, description: Obligatoire même si connecté (mises à jour par email) }
+        description: { type: string, maxLength: 2000, description: Description du ou des sets }
+        images:
+          type: array
+          minItems: 1
+          maxItems: 5
+          items: { type: string, format: binary }
+        proposedPrice: { type: integer, minimum: 0 }
+    BuybackDecision:
+      type: object
+      required: [status]
+      properties:
+        status: { type: string, enum: [in_review, accepted, rejected, completed] }
+        offeredPrice: { type: integer, minimum: 0 }
+        comment: { type: string }
+
+    # Panier, paiement et commandes
+    Cart:
+      type: object
+      required: [items, totalAmount, currency]
+      properties:
+        token: { type: string, description: Jeton du panier invité, à renvoyer dans `X-Cart-Token` (absent si connecté) }
+        items:
+          type: array
+          items: { $ref: '#/components/schemas/CartItem' }
+        totalAmount: { type: integer, description: Total en centimes }
+        currency: { type: string, enum: [EUR] }
+    CartItem:
+      type: object
+      required: [id, productId, quantity, unitPrice]
+      properties:
+        id: { type: string, format: uuid }
+        productId: { type: string, format: uuid }
+        name: { type: string }
+        imageUrl: { type: string, format: uri }
+        quantity: { type: integer, minimum: 1 }
+        unitPrice: { type: integer }
+        availableQuantity: { type: integer, minimum: 0 }
+    CartItemCreate:
+      type: object
+      required: [productId, quantity]
+      properties:
+        productId: { type: string, format: uuid }
+        quantity: { type: integer, minimum: 1, default: 1, description: Plusieurs exemplaires en un clic (US2.1) }
+    CheckoutRequest:
+      type: object
+      required: [shippingAddress]
+      oneOf:
+        - required: [paymentMethod]
+        - required: [savedPaymentMethodId]
+      properties:
+        shippingAddress: { $ref: '#/components/schemas/Address' }
+        billingAddress: { $ref: '#/components/schemas/Address' }
+        paymentMethod: { type: string, enum: [card, paypal] }
+        savedPaymentMethodId: { type: string, format: uuid, description: Moyen enregistré (US3.2) }
+        returnUrl: { type: string, format: uri, description: URL de retour après paiement PayPal / 3-D Secure }
+    PaymentSession:
+      type: object
+      required: [provider, status]
+      properties:
+        provider: { type: string, enum: [card, paypal] }
+        status: { $ref: '#/components/schemas/PaymentStatus' }
+        clientSecret: { type: string, description: Pour finaliser le paiement carte côté front (ex. Stripe) }
+        redirectUrl: { type: string, format: uri, description: Page d'approbation PayPal }
+    CheckoutResponse:
+      type: object
+      required: [order, payment]
+      properties:
+        order: { $ref: '#/components/schemas/Order' }
+        payment: { $ref: '#/components/schemas/PaymentSession' }
+    PaymentStatus:
+      type: string
+      description: Affiché sur la facture, y compris en cas de paiement en plusieurs fois (US2.7).
+      enum: [pending, partially_paid, paid, failed, refunded]
+    OrderStatus:
+      type: string
+      description: '`pending` = en attente de paiement ; `paid` = validée (US2.2).'
+      enum: [pending, paid, preparing, shipped, delivered, cancelled, withdrawal_requested, refunded]
+    Order:
+      type: object
+      required: [id, status, paymentStatus, items, totalAmount, currency, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        number: { type: string, example: BP-2026-000123 }
+        customer:
+          type: object
+          description: Renvoyé aux administrateurs
+          properties:
+            id: { type: string, format: uuid }
+            email: { type: string, format: email }
+            username: { type: string }
+        status: { $ref: '#/components/schemas/OrderStatus' }
+        paymentStatus: { $ref: '#/components/schemas/PaymentStatus' }
+        paymentMethod: { type: string, enum: [card, paypal] }
+        installments:
+          type: object
+          description: Paiement en plusieurs fois (US2.7)
+          properties:
+            count: { type: integer, minimum: 1 }
+            paidCount: { type: integer, minimum: 0 }
+        items:
+          type: array
+          items:
+            type: object
+            required: [productId, name, quantity, unitPrice]
+            properties:
+              productId: { type: string, format: uuid }
+              name: { type: string }
+              quantity: { type: integer }
+              unitPrice: { type: integer }
+        totalAmount: { type: integer }
+        currency: { type: string, enum: [EUR] }
+        shippingAddress: { $ref: '#/components/schemas/Address' }
+        trackingNumber: { type: string }
+        invoice: { $ref: '#/components/schemas/Invoice' }
+        withdrawal: { $ref: '#/components/schemas/Withdrawal' }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    Invoice:
+      type: object
+      required: [id, orderId, number, paymentStatus, version, issuedAt]
+      properties:
+        id: { type: string, format: uuid }
+        orderId: { type: string, format: uuid }
+        number: { type: string, example: FA-2026-000123 }
+        paymentStatus: { $ref: '#/components/schemas/PaymentStatus' }
+        version: { type: integer, minimum: 1, description: Incrémentée à chaque régénération, la dernière remplace la précédente }
+        totalAmount: { type: integer }
+        issuedAt: { type: string, format: date-time }
+        downloadUrl: { type: string, format: uri-reference, example: '/v1/orders/{orderId}/invoice' }
+    WithdrawalStatus:
+      type: string
+      description: Envoyée, traitée, terminée (US2.3). `rejected` est une **hypothèse**.
+      enum: [submitted, processed, completed, rejected]
+    Withdrawal:
+      type: object
+      required: [id, orderId, status, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        orderId: { type: string, format: uuid }
+        status: { $ref: '#/components/schemas/WithdrawalStatus' }
+        reason: { type: string }
+        items:
+          type: array
+          items:
+            type: object
+            required: [productId, quantity]
+            properties:
+              productId: { type: string, format: uuid }
+              quantity: { type: integer, minimum: 1 }
+        returnInstructions:
+          type: object
+          description: Informations de retour, présentes une fois la demande traitée
+          properties:
+            address: { $ref: '#/components/schemas/Address' }
+            shippingLabelUrl: { type: string, format: uri }
+            instructions: { type: string }
+        refundAmount: { type: integer, minimum: 0 }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+    WithdrawalUpdate:
+      type: object
+      required: [status]
+      properties:
+        status: { $ref: '#/components/schemas/WithdrawalStatus' }
+        returnInstructions:
+          type: object
+          properties:
+            address: { $ref: '#/components/schemas/Address' }
+            shippingLabelUrl: { type: string, format: uri }
+            instructions: { type: string }
+        refundAmount: { type: integer, minimum: 0 }
+        comment: { type: string }
+    Notification:
+      type: object
+      required: [id, type, message, read, createdAt]
+      properties:
+        id: { type: string, format: uuid }
+        type:
+          type: string
+          enum: [order_created, order_status_changed, withdrawal_update, buyback_created, buyback_update]
+        orderId: { type: string, format: uuid }
+        buybackId: { type: string, format: uuid }
+        message: { type: string }
+        read: { type: boolean }
+        emailSent: { type: boolean, description: La notification a aussi été envoyée par email }
+        createdAt: { type: string, format: date-time }
+    RealtimeEvent:
+      type: object
+      required: [type, occurredAt, payload]
+      properties:
+        type:
+          type: string
+          enum: [order.created, order.status_changed, withdrawal.updated, notification.created, stock.updated]
+        occurredAt: { type: string, format: date-time }
+        payload:
+          description: Order, Withdrawal, Notification ou Stock selon `type`
+          oneOf:
+            - $ref: '#/components/schemas/Order'
+            - $ref: '#/components/schemas/Withdrawal'
+            - $ref: '#/components/schemas/Notification'
+            - $ref: '#/components/schemas/Stock'
